@@ -19,13 +19,41 @@ library("vdemdata")
 
 
 ## Load the data
-## To ensure that the data meet the requirements of other scholar, the data uses the variables in the orignal analysis
+## To ensure that the data meet the requirements of other scholar, the data uses the variables in the original analysis
 
 df_vdem <- vdem %>%
-  select(country_name, COWcode, v2x_polyarchy, v2ellovtlg, v2ellovtsm, v2ellostsl, v2ellostss, v2ellostts, v2elvotlrg, v2elvotsml, v2xex_elecreg, v2xlg_elecreg, v2x_suffr, v2eltype_0, v2eltype_6, v2ellocons, v2ellocumul, v2ellocons, v2elprescons, v2elprescumul, v2elturnhog, v2elturnhos, v2eltvrexo) %>%
-  mutate(v2elturnhog = as.factor(v2elturnhog), v2elturnhos = as.factor(v2elturnhos), v2eltvrexo = as.factor(v2eltvrexo), )
-  
-  
+  select(country_name, # Country name
+         year, # year
+         COWcode, # correlates of war code
+         v2x_polyarchy, # electoral democracy
+         v2ellovtlg, # largest vote share
+         v2ellovtsm, # second largest vote share
+         v2ellostsl, # largest seat share
+         v2ellovttm, # third largest vote share
+         v2ellostss, # second largest seat share
+         v2ellostts, # third largest seat share
+         v2elvotlrg, # largest presidential vote share
+         v2elvotsml, # second largest presidential vote share
+         v2xex_elecreg, # Executive electoral regime index
+         v2xlg_elecreg, # Legislative electoral regime index
+         v2x_suffr, # Share of population with suffrage
+         v2eltype_0, # Dummy for legislative elections
+         v2eltype_6, # Dummy for presidential elections
+         v2ellocons, # Legislative elections, consecutive
+         v2ellocumul, # Legislative elections, cumulative
+         v2elprescons, # Presidential elections, consecutive
+         v2elprescumul, # Presidential elections, cumulative
+         v2elturnhog, # Head of government turnover
+         v2elturnhos, # Head of state turnover
+         v2eltvrexo) %>% # Executive turnover
+  mutate(v2elturnhog = ifelse((is.na(v2eltype_6) & is.na(v2eltype_0)) | (v2eltype_6 == 0 & v2eltype_0 == 0), 2, v2elturnhog),
+         v2elturnhos = ifelse((is.na(v2eltype_6) & is.na(v2eltype_0)) | (v2eltype_6 == 0), 2, v2elturnhos),
+         v2eltvrexo = ifelse((is.na(v2eltype_6) & is.na(v2eltype_0)) | (v2eltype_6 == 0 & v2eltype_0 == 0), 3, v2eltvrexo),
+         v2elturnhog = as.factor(v2elturnhog),
+         v2elturnhos = as.factor(v2elturnhos),
+         v2eltvrexo = as.factor(v2eltvrexo)) %>%
+  group_by(country_name) %>%
+  mutate()
 
 
 
