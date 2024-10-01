@@ -1,8 +1,18 @@
-#### By Grant Mitchell
-#### Code last updated on 4/24
-#### Data and linear modeling for the 
+---
+title: "make shift random forest"
+output: html_document
+date: "2024-09-30"
+---
 
-#### Packages
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Packages
+
+Some of these are not used, but I am too lazy to figure out which
+
+```{r}
 
 library(tidyverse)
 library(haven)
@@ -17,9 +27,13 @@ library(zoo)
 library(plm)
 library(reghelper)
 library(LongituRF)
+```
 
-#### functions
+## Data Cleaning
 
+some functions I made to make a new variable. Not perfect, but good enough.
+
+```{r echo+FALSE}
 neg_binom <- function(bi_var) {
   counts <- numeric(length(bi_var))
   current_count <- 0
@@ -47,9 +61,13 @@ impute <- function(df, var) {
   }
   return(df)
 }
+```
 
-#### Clean data
 
+VDEM data
+
+
+```{r echo=FALSE}
 data <- vdem %>%
   mutate(turnover_test = ifelse(v2elturnhog == 0, 0, 1), COWcode = as.factor(COWcode), election = ifelse(is.na(v2eltype_0), 0, 1)) %>%
   replace_na(replace = list(turnover_test = 0, v2elturnhog = 0)) %>%
@@ -57,8 +75,13 @@ data <- vdem %>%
   select(turnover_test, v2x_polyarchy, v2x_libdem, election, COWcode, v2elturnhog, year, fix, v2ellostsl, v2elsuffrage, e_p_polity, v2expathhg, v2ex_elechog, v2ex_elechos, v2exhoshog, ifs = country_text_id, v2expathhg, v2expathhs, v2x_freexp_altinf, v2xel_frefair, country_id) %>%
   group_by(COWcode) %>%
   mutate(last_elect = log(neg_binom(election) + 1), var_elect = var(last_elect), exec_chose = ifelse(v2exhoshog == 1, v2expathhs, v2expathhg-1), parli = ifelse(exec_chose == 6, 1, 0))
+```
 
-#### Lexical Data
+Lexical Data
+
+Here we combine the two dataset
+
+```{r echo=FALSE}
 
 lexical <- read_excel("C:/Users/mitchellg/Documents/R projects/osm_paisbias/LIED_6.6.xlsx") %>%
   rename(COWcode = cow) %>%
@@ -66,43 +89,6 @@ lexical <- read_excel("C:/Users/mitchellg/Documents/R projects/osm_paisbias/LIED
 
 data <- left_join(data, lexical, by = c("year", "COWcode")) %>%
   mutate(lexical_index = (lexical_index/6), lexical_index_plus = (lexical_index_plus/7))
-
-data <- cbind(data, 
-              datawizard::demean(data, 
-                                 select = c("last_elect","v2ellostsl", "executive_elections", "legislative_elections", "multi-party_legislative_elections", "turnover_event", "competitive_elections", "v2elsuffrage", "e_p_polity", "political_liberties", "parli", "v2exhoshog", "v2x_freexp_altinf", "v2xel_frefair"),
-                                 group = "COWcode"))
-
-data <- data %>%
-  ungroup() %>%
-  mutate(across(
-    starts_with(c(
-      "turnover_event_within", 
-      "legislative_elections_within", 
-      "executive_elections_within", 
-      "multi.party_legislative_elections_within", 
-      "last_elect_within", 
-      "competitive_elections_within",
-      "v2elsuffrage_within",
-      "political_liberties_within",
-      "turnover_event_between", 
-      "legislative_elections_between", 
-      "executive_elections_between", 
-      "multi.party_legislative_elections_between",
-      "last_elect_between",
-      "competitive_elections_between",
-      "v2elsuffrage_between",
-      "political_liberties_between",
-      "parli_between",
-      "parli_within",
-      "v2exhoshog_within",
-      "v2exhoshog_between",
-      "v2x_freexp_altinf_within",
-      "v2x_freexp_altinf_between",
-      "v2xel_frefair_within",
-      "v2xel_frefair_between"
-    )),
-    ~ (.-mean(., na.rm = TRUE)) / (2*(sd(., na.rm = TRUE)))
-  ))
 
 dat <- data %>%
   select(turnover_event,
@@ -115,10 +101,27 @@ dat <- data %>%
          v2x_polyarchy, year, COWcode, countryn) %>%
   na.omit()
 
+```
 
-REmat <- matrix(NA, nrow = 196, ncol = 200)
+The variables in the study are so far:
 
-for (i in 1:200) {
+last_elect- years since last election (VDEM)
+executive_elections - are there elections for the executive (LIED)
+legislative_elections - are there elections for the legislature (LIED)
+multi-party_legislative_elections - are there multi-party elections (LIED)
+turnover_event - was there turnover (LIED)
+v2elsuffrage - percent of populiation with suffrage (VDEM)
+political_liberties - is there freedom of expression and freedom of the press (LIED)
+
+## Random Forest
+
+Okay, so the MERF function was not working, but the MERT (tree) model was, so I had to improvise to get some result. I first wrote code that would randomly sample 3 of the variable in the data set to run a tree on. I then selected n_group number of observations from each group with replacement, with n_group being the number of observation in the orginal dataset. I then fit the random forest, and saved the random effects in a matrix and repeated this 500 times.
+
+
+```{r results='hide'}
+REmat <- matrix(NA, nrow = 196, ncol = 300)
+
+for (i in 1:300) {
   
   variable_to_select <- dat %>%
   select(-COWcode, -year, -v2x_polyarchy, -countryn) %>%
@@ -155,14 +158,16 @@ for (i in 1:200) {
 REmat[, i] <- mert1$random_effects
 
 }
+```
 
+Here I clean the data to be presented in a Caterpillar plot.
 
+```{r}
 REmat <- as.matrix(REmat)
 
 REmat <- t(REmat)
 
 REmat <- as.data.frame(REmat)
-
 
 data_viz <- REmat %>%
   summarize_all(list(
@@ -171,7 +176,6 @@ data_viz <- REmat %>%
     upper = ~quantile(., probs = 0.975, na.rm = TRUE)
   ))
 
-# Pivot to long format
 data_viz_long <- data_viz %>%
   pivot_longer(cols = everything(), 
                names_to = c("variable", ".value"),
@@ -187,15 +191,19 @@ uniquecow <- dat %>%
   summarise(name = first(countryn))
 
 data_viz_long <- cbind(data_viz_long, uniquecow) %>%
-  arrange(lower)  # Sort by mean in ascending order
+  arrange(lower)
+```
 
-# Plot
+This is the plot. As you can see, there are several countries that receive systematic and significant overscoring and underscoring. There is some pattern to this. Countries in the "west" tend to get higher scores, while Latin America in particular tends to get lower scores.
+
+```{r}
 ggplot(data = data_viz_long) +
-  geom_linerange(aes(xmin = lower, xmax = upper, y = reorder(name, mean), color = sig)) +  # Reorder variables based on mean
-  geom_point(aes(x = mean, y = reorder(name, mean), color = sig)) +  # Reorder variables based on mean
+  geom_linerange(aes(xmin = lower, xmax = upper, y = reorder(name, mean), color = sig)) + 
+  geom_point(aes(x = mean, y = reorder(name, mean), color = sig)) +  
   geom_vline(xintercept = 0, color = "darkblue") +
   theme_bw() +
   coord_flip() +
   theme(axis.text.x = element_text(angle = 90))
 
+```
 

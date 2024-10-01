@@ -25,6 +25,7 @@ df_vdem <- vdem %>%
   select(country_name, # Country name
          year, # year
          COWcode, # correlates of war code
+         country_id,
          v2x_polyarchy, # electoral democracy
          v2ellovtlg, # largest vote share
          v2ellovtsm, # second largest vote share
@@ -45,7 +46,12 @@ df_vdem <- vdem %>%
          v2elprescumul, # Presidential elections, cumulative
          v2elturnhog, # Head of government turnover
          v2elturnhos, # Head of state turnover
-         v2eltvrexo) %>% # Executive turnover
+         v2eltvrexo)
+
+write.csv(df_vdem, file = "~/R projects/osm_paisbias/paisbias scripts/vdem_osm.csv", row.names = F)
+
+
+%>% # Executive turnover
   mutate(v2elturnhog = ifelse((is.na(v2eltype_6) & is.na(v2eltype_0)) | (v2eltype_6 == 0 & v2eltype_0 == 0), 2, v2elturnhog),
          v2elturnhos = ifelse((is.na(v2eltype_6) & is.na(v2eltype_0)) | (v2eltype_6 == 0), 2, v2elturnhos),
          v2eltvrexo = ifelse((is.na(v2eltype_6) & is.na(v2eltype_0)) | (v2eltype_6 == 0 & v2eltype_0 == 0), 3, v2eltvrexo),
